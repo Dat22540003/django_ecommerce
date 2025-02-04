@@ -1,0 +1,21 @@
+# Secret Key
+DJANGO_SECRET_KEY=
+
+# Other variables
+DEBUG=
+
+# Database Configuration
+MONGO_URI=
+
+
+# Email Configuration
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+
+# Client URL for reset password
+CLIENT_URL=
+
+# Cloudinary keys
+CLOUDINARY_NAME=
+CLOUDINARY_KEY=
+CLOUDINARY_SECRET=
