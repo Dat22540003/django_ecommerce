@@ -6,9 +6,12 @@ import jwt
 from datetime import datetime, timedelta
 from cloudinary.uploader import upload
 from cloudinary.exceptions import Error
-
+from django.utils.text import slugify
+import uuid
 
 # Convert a MongoDB document to a JSON-compatible format
+
+
 def convert_to_json_compatible(obj):
     if isinstance(obj, dict):
         return {key: convert_to_json_compatible(value) for key, value in obj.items()}
@@ -99,3 +102,15 @@ def upload_multiple_images(files, transformation=None):
         except Error as e:
             return {'success': False, 'error': f'An error occurred while uploading the image: {e}'}
     return {'success': True, 'data': urls}
+
+
+# Generate a unique slug
+def unique_slugify(title):
+    slug = slugify(title)
+    unique_slug = f"{slug}-{uuid.uuid4().hex[:8]}"
+    return unique_slug
+
+
+# Generate a unique SKU
+def generate_sku():
+    return "SKU" + str(uuid.uuid4().hex[:13]).upper()

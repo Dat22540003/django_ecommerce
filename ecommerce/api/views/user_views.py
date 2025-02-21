@@ -12,6 +12,7 @@ from django.utils.crypto import get_random_string
 from time import sleep
 from django.contrib.auth.hashers import make_password, check_password
 from bson import ObjectId
+from datetime import datetime
 
 
 def delete_temp_user(email):
@@ -48,9 +49,16 @@ def register(request):
             'password': make_password(password),
             'firstname': firstname,
             'lastname': lastname,
+            'avatar': '',
             'mobile': mobile,
             'role': '1998',
-            'isBlocked': False
+            'cart': [],
+            'address': '',
+            'wishlist': [],
+            'additionalAddress': [],
+            'isBlocked': False,
+            'createdAt': datetime.now(),
+            'updatedAt': datetime.now(),
         }
     )
 
@@ -79,16 +87,18 @@ def register(request):
         return Response({'success': False, 'message': 'An error occurred while creating the user.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # Schedule deletion of the temporary user
-    thread = threading.Thread(target=delete_temp_user, args=(tokenized_email,))
+    thread = threading.Thread(
+        target=delete_temp_user, args=(tokenized_email,))
     thread.start()
 
-    return Response({'success': True, 'message': 'Temporary user created. Check your email for further instructions.'})
+    return Response({'success': True, 'message': 'Temporary user created. Check your email for further instructions.'}, status=status.HTTP_201_CREATED)
 
 
 # Complete user registration
 @api_view(['PUT'])
 def complete_register(request, token):
-    temp_user = UserServices().get_temp_user(token)
+    temp_user = UserServices(
+    ).get_temp_user(token)
 
     if temp_user['success']:
         tokenized_email = temp_user['data']['email']
@@ -109,20 +119,23 @@ def complete_register(request, token):
 def login(request):
     # Extract email and password from request data
     email = request.data.get('email')
-    password = request.data.get('password')
+    password = request.data.get(
+        'password')
 
     # Validate input fields
     if not email or not password:
         return Response({'success': False, 'message': 'Missing input'}, status=status.HTTP_400_BAD_REQUEST)
 
     # Get the user
-    user = UserServices().get_user({'email': email})
+    user = UserServices().get_user(
+        {'email': email})
 
     if not user['success']:
         return Response({'success': False, 'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
     user_data = user['data']
-    hashed_password = user_data.pop('password', None)
+    hashed_password = user_data.pop(
+        'password', None)
     role = user_data.pop('role', None)
     user_data.pop('refreshToken', None)
 
@@ -131,8 +144,10 @@ def login(request):
         return Response({'success': False, 'message': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
 
     # Generate tokens
-    access_token = generate_access_token(str(user_data['_id']), role)
-    refresh_token = generate_refresh_token(str(user_data['_id']))
+    access_token = generate_access_token(
+        str(user_data['_id']), role)
+    refresh_token = generate_refresh_token(
+        str(user_data['_id']))
 
     # Update user's refresh token in the database
     updated_user = UserServices().update_user(
@@ -176,7 +191,8 @@ def get_current(request):
 # Refresh access token
 @api_view(['POST'])
 def refresh_access_token(request):
-    refresh_token = request.COOKIES.get('refreshToken')
+    refresh_token = request.COOKIES.get(
+        'refreshToken')
 
     if not refresh_token:
         return Response({'success': False, 'message': 'No refresh token in cookie'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -204,7 +220,8 @@ def refresh_access_token(request):
 # Logout a user
 @api_view(['GET'])
 def logout(request):
-    refresh_token = request.COOKIES.get('refreshToken')
+    refresh_token = request.COOKIES.get(
+        'refreshToken')
 
     if not refresh_token:
         return Response({'success': False, 'message': 'No refresh token in cookie'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -216,7 +233,8 @@ def logout(request):
     # Delete refresh token from cookie
     response = Response(
         {'success': True, 'message': 'Logout successfully'}, status=status.HTTP_200_OK)
-    response.delete_cookie('refreshToken')
+    response.delete_cookie(
+        'refreshToken')
 
     return response
 
@@ -230,13 +248,15 @@ def forgot_password(request):
     if not email:
         return Response({'success': False, 'message': 'Please provide email'}, status=status.HTTP_400_BAD_REQUEST)
 
-    user = UserServices().get_user({'email': email})
+    user = UserServices().get_user(
+        {'email': email})
 
     if not user['success']:
         return Response({'success': False, 'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
     # Generate a token
-    token = generate_password_reset_token(str(email))
+    token = generate_password_reset_token(
+        str(email))
 
     html = f'''<html>
                     <body>
@@ -262,7 +282,8 @@ def forgot_password(request):
 @api_view(['PUT'])
 def reset_password(request):
     token = request.data.get('token')
-    password = request.data.get('password')
+    password = request.data.get(
+        'password')
 
     if not password or not token:
         return Response({'success': False, 'message': 'Please provide password and reset token'}, status=status.HTTP_400_BAD_REQUEST)
@@ -292,7 +313,8 @@ def get_users(request):
     queries = request.query_params.dict()
 
     # Separate the specified fields from queries
-    excluded_fields = ['page', 'sort', 'limit', 'fields']
+    excluded_fields = [
+        'page', 'sort', 'limit', 'fields']
     queries = {key: value for key,
                value in queries.items() if key not in excluded_fields}
 
@@ -309,9 +331,12 @@ def get_users(request):
     if queries.get('q'):
         del formatted_queries['find']['q']
         formatted_queries['find']['$or'] = [
-            {'firstname': {'$regex': queries['q'], '$options': 'i'}},
-            {'lastname': {'$regex': queries['q'], '$options': 'i'}},
-            {'email': {'$regex': queries['q'], '$options': 'i'}},
+            {'firstname': {
+                '$regex': queries['q'], '$options': 'i'}},
+            {'lastname': {
+                '$regex': queries['q'], '$options': 'i'}},
+            {'email': {
+                '$regex': queries['q'], '$options': 'i'}},
         ]
 
     # Sorting
@@ -327,16 +352,21 @@ def get_users(request):
         formatted_queries['fields'] = fields
 
     # Pagination
-    page = int(request.query_params.get('page', 1))
-    limit = int(request.query_params.get('limit', 10))
+    page = int(
+        request.query_params.get('page', 1))
+    limit = int(
+        request.query_params.get('limit', 10))
     skip = (page - 1) * limit
     formatted_queries['skip'] = skip
     formatted_queries['limit'] = limit
 
-    users = UserServices().get_users(formatted_queries)
+    print(formatted_queries)
+
+    users = UserServices().get_users(
+        formatted_queries)
 
     if not users['success']:
-        return Response({'success': False, 'message': 'Cannot get users'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'success': False, 'message': f'Cannot get users due to {users["error"]}'}, status=status.HTTP_404_NOT_FOUND)
 
     return Response({'success': True, 'count': len(users['data']), 'users': convert_to_json_compatible(users['data'])}, status=status.HTTP_200_OK)
 
@@ -349,7 +379,8 @@ def delete_user(request, user_id):
     if request.user['_id'] == user_id:
         return Response({'success': False, 'message': 'You cannot delete the administrator account that is currently logged in'}, status=status.HTTP_403_FORBIDDEN)
     else:
-        result = UserServices().delete_user({'_id': ObjectId(user_id)})
+        result = UserServices().delete_user(
+            {'_id': ObjectId(user_id)})
 
         if not result['success']:
             return Response({'success': False, 'message': 'Cannot delete user'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -370,7 +401,8 @@ def update_user(request):
 
     # Check if avatar is provided
     if avatar:
-        upload_result = upload_single_image(avatar)
+        upload_result = upload_single_image(
+            avatar)
         if not upload_result['success']:
             return Response({'success': False, 'message': upload_result['error']}, status=status.HTTP_400_BAD_REQUEST)
         data['avatar'] = upload_result['data']
@@ -413,15 +445,196 @@ def update_user_by_admin(request, user_id):
 @api_view(['PUT'])
 @verify_access_token
 def update_user_address(request):
-    address = request.data.get('address')
+    address = request.data.get(
+        'address')
 
     if not address:
         return Response({'success': False, 'message': 'Missing input'}, status=status.HTTP_400_BAD_REQUEST)
 
     result = UserServices().update_user_address(
-        {'_id': ObjectId(request.user['_id'])}, {'additionalAddress': address})
+        {'_id': ObjectId(request.user['_id'])}, {'address': address})
 
     if not result['success']:
         return Response({'success': False, 'message': result['error']}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response({'success': True, 'message': 'User address updated successfully'}, status=status.HTTP_200_OK)
+
+
+# Update user additional address
+@api_view(['PUT'])
+@verify_access_token
+def update_user_additional_address(request):
+    user_id = request.user['_id']
+    data = request.data
+
+    if not data['name'] or not data['mobileNo'] or not data['houseNo'] or not data['landmark'] or not data['street'] or not data['city'] or not data['country'] or not data['postalCode']:
+        return Response({'success': False, 'message': 'Missing input'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user_additional_address = UserServices().get_user(
+        {'_id': ObjectId(user_id)})['data']['additionalAddress']
+
+    is_in_additional_address = next(
+        (item for item in user_additional_address if item['name'] == data['name'] and item['mobileNo'] == data['mobileNo'] and item['houseNo'] == data['houseNo'] and item['landmark'] == data['landmark']), None)
+
+    if is_in_additional_address:
+        return Response({'success': False, 'message': 'Address already exists'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        response = UserServices().update_user_additional_address(
+            'ADD',
+            {'_id': ObjectId(user_id)},
+            {
+                '_id': ObjectId(),
+                'name': data['name'],
+                'mobileNo': data['mobileNo'],
+                'houseNo': data['houseNo'],
+                'landmark': data['landmark'],
+                'street': data['street'],
+                'city': data['city'],
+                'country': data['country'],
+                'postalCode': data['postalCode'],
+            }
+        )
+        if not response['success']:
+            return Response({'success': False, 'message': response['error']}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    print(user_additional_address)
+
+    return Response({'success': True, 'message': 'User additional address updated successfully'}, status=status.HTTP_200_OK)
+
+
+# Remove user additional address
+@api_view(['DELETE'])
+@verify_access_token
+def remove_user_additional_address(request, address_id):
+    user_id = request.user['_id']
+
+    user_additional_address = UserServices().get_user(
+        {'_id': ObjectId(user_id)})['data']['additionalAddress']
+
+    is_in_additional_address = next(
+        (item for item in user_additional_address if str(item['_id']) == address_id), None)
+
+    if not is_in_additional_address:
+        return Response({'success': False, 'message': 'Address not found'}, status=status.HTTP_404_NOT_FOUND)
+    else:
+        response = UserServices().update_user_additional_address(
+            'REMOVE',
+            {'_id': ObjectId(user_id)},
+            {'_id': ObjectId(address_id)}
+        )
+        if not response['success']:
+            return Response({'success': False, 'message': response['error']}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response({'success': True, 'message': 'User additional address removed successfully'}, status=status.HTTP_200_OK)
+
+
+# Update user cart
+@api_view(['PUT'])
+@verify_access_token
+def update_user_cart(request):
+    user_id = request.user['_id']
+    data = request.data
+
+    if not data['pid'] or not data['color']:
+        return Response({'success': False, 'message': 'Missing input'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user_cart = UserServices().get_user(
+        {'_id': ObjectId(user_id)})['data']['cart']
+
+    already_added_item = next(
+        (item for item in user_cart if str(item['product']) == data['pid'] and item['color'].upper() == data['color'].upper()), None)
+
+    if already_added_item:
+        response = UserServices().update_user_cart(
+            'IS_EXISTED',
+            {'_id': ObjectId(user_id), 'cart.product': already_added_item['product'],
+                'cart.color': already_added_item['color']},
+            int(data.get('quantity', 1)),
+        )
+        if not response['success']:
+            return Response({'success': False, 'message': response['error']}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    else:
+        response = UserServices().update_user_cart(
+            'IS_NOT_EXISTED',
+            {'_id': ObjectId(user_id)},
+            {
+                'product': ObjectId(data['pid']),
+                'quantity': int(data.get('quantity', 1)),
+                'color': data['color'],
+                'thumnail': data['thumbnail'],
+                'title': data['title'],
+                'price': float(data['price']),
+                '_id': ObjectId()
+            }
+        )
+        if not response['success']:
+            return Response({'success': False, 'message': response['error']}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response({'success': True, 'message': 'User cart updated successfully'}, status=status.HTTP_200_OK)
+
+
+# Remove product from user cart
+@api_view(['DELETE'])
+@verify_access_token
+def remove_from_cart(request, pid, color):
+    user_id = request.user['_id']
+
+    if not pid or not color:
+        return Response({'success': False, 'message': 'Missing input'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user_cart = UserServices().get_user(
+        {'_id': ObjectId(user_id)})['data']['cart']
+
+    already_added_item = next(
+        (item for item in user_cart if str(item['product']) == pid and item['color'].upper() == color.upper()), None)
+
+    if not already_added_item:
+        return Response({'success': False, 'message': 'Item has not been in cart'}, status=status.HTTP_200_OK)
+    else:
+        response = UserServices().update_user_cart(
+            'REMOVE',
+            {'_id': ObjectId(user_id), 'cart.product': already_added_item['product'],
+                'cart.color': already_added_item['color']},
+            {'product': already_added_item['product'],
+             'color': already_added_item['color']},
+        )
+        if not response['success']:
+            return Response({'success': False, 'message': response['error']}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response({'success': True, 'message': 'Item removed from cart successfully'}, status=status.HTTP_200_OK)
+
+
+# Update user wishlist
+@api_view(['PUT'])
+@verify_access_token
+def update_user_wishlist(request, pid):
+    user_id = request.user['_id']
+
+    if not pid:
+        return Response({'success': False, 'message': 'Missing input'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user_wishlist = UserServices().get_user(
+        {'_id': ObjectId(user_id)})['data']['wishlist']
+
+    is_in_wishlist = next(
+        (item for item in user_wishlist if str(item) == pid), None)
+
+    if is_in_wishlist:
+        response = UserServices().update_user_wishlist(
+            'REMOVE',
+            {'_id': ObjectId(user_id)},
+            ObjectId(pid)
+        )
+        if not response['success']:
+            return Response({'success': False, 'message': response['error']}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        response = UserServices().update_user_wishlist(
+            'ADD',
+            {'_id': ObjectId(user_id)},
+            ObjectId(pid)
+        )
+        if not response['success']:
+            return Response({'success': False, 'message': response['error']}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response({'success': True, 'message': 'User wishlist had been updated successfully'}, status=status.HTTP_200_OK)

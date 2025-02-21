@@ -18,9 +18,9 @@ class UserServices:
                 return {'success': False, 'error': 'An error occurred while creating the user.'}
 
         except PyMongoError as e:
-            return f'An error occurred while creating the user: {e}'
+            return {'success': False, 'error': f'An error occurred while creating the user: {e}'}
         except Exception as e:
-            return f'An unexpected error occurred: {e}'
+            return {'success': False, 'error': f'An unexpected error occurred: {e}'}
 
     # Get a user
     def get_user(self, query_data):
@@ -40,11 +40,19 @@ class UserServices:
     # Get all users
     def get_users(self, query_data):
         try:
-            result = list(self.user_collection.find(query_data['find'], query_data['fields']).sort(
-                query_data['sort']).skip(query_data['skip']).limit(query_data['limit']))
-
-            print(f'length of results: {len(result)}')
-
+            result = None
+            if 'fields' not in query_data and 'sort' not in query_data:
+                result = list(self.user_collection.find(query_data['find']).skip(
+                    query_data['skip']).limit(query_data['limit']))
+            elif 'sort' not in query_data:
+                result = list(self.user_collection.find(query_data['find'], query_data['fields']).skip(
+                    query_data['skip']).limit(query_data['limit']))
+            elif 'fields' not in query_data:
+                result = list(self.user_collection.find(query_data['find']).sort(
+                    query_data['sort']).skip(query_data['skip']).limit(query_data['limit']))
+            else:
+                result = list(self.user_collection.find(query_data['find'], query_data['fields']).sort(
+                    query_data['sort']).skip(query_data['skip']).limit(query_data['limit']))
             if result is None:
                 return {'success': False, 'error': f'No user found with the given query data.'}
             else:
@@ -182,7 +190,7 @@ class UserServices:
     def update_user(self, update_by, user_data):
         try:
             result = self.user_collection.update_one(
-                update_by, {'$set': user_data})
+                update_by, {'$set': user_data, "$currentDate": {"updatedAt": True}})
 
             if result.modified_count > 0:
                 return {'success': True, 'message': f'User had been updated successfully.'}
@@ -195,14 +203,81 @@ class UserServices:
             return {'success': False, 'error': f'An unexpected error occurred: {e}'}
 
     # Update user address
-
     def update_user_address(self, update_by, address):
         try:
             result = self.user_collection.update_one(
-                update_by, {'$push': address})
+                update_by, {'$set': address, "$currentDate": {"updatedAt": True}})
 
             if result.modified_count > 0:
                 return {'success': True, 'message': f'User address had been updated successfully.'}
+            else:
+                return {'success': False, 'error': f'No user found or no changes made.'}
+
+        except PyMongoError as e:
+            return {'success': False, 'error': f'An error occurred while updating the user: {e}'}
+        except Exception as e:
+            return {'success': False, 'error': f'An unexpected error occurred: {e}'}
+
+    # Update user additional address
+    def update_user_additional_address(self, state, update_by, address):
+        try:
+            result = None
+            if state == 'ADD':
+                result = self.user_collection.update_one(
+                    update_by, {'$push': {'additionalAddress': address}, "$currentDate": {"updatedAt": True}})
+            elif state == 'REMOVE':
+                result = self.user_collection.update_one(
+                    update_by, {'$pull': {'additionalAddress': address}, "$currentDate": {"updatedAt": True}})
+
+            if result.modified_count > 0:
+                return {'success': True, 'message': f'User additional address had been updated successfully.'}
+            else:
+                return {'success': False, 'error': f'No user found or no changes made.'}
+
+        except PyMongoError as e:
+            return {'success': False, 'error': f'An error occurred while updating the user: {e}'}
+        except Exception as e:
+            return {'success': False, 'error': f'An unexpected error occurred: {e}'}
+
+    # Update user cart
+    def update_user_cart(self, state, update_by, data):
+        try:
+            result = None
+            if state == 'IS_EXISTED':
+                result = self.user_collection.update_one(
+                    update_by, {'$inc': {'cart.$.quantity': data}, "$currentDate": {"updatedAt": True}})
+            elif state == 'IS_NOT_EXISTED':
+                result = self.user_collection.update_one(
+                    update_by,  {'$push': {'cart': data}, "$currentDate": {"updatedAt": True}})
+            elif state == 'REMOVE':
+                result = self.user_collection.update_one(
+                    update_by, {'$pull': {'cart': data}, "$currentDate": {"updatedAt": True}})
+            elif state == 'CLEAR':
+                result = self.user_collection.update_one(
+                    update_by, {'$set': {'cart': data}, "$currentDate": {"updatedAt": True}})
+            if result.modified_count > 0:
+                return {'success': True, 'message': f'User cart had been updated successfully.'}
+            else:
+                return {'success': False, 'error': f'No user found or no changes made.'}
+
+        except PyMongoError as e:
+            return {'success': False, 'error': f'An error occurred while updating the user: {e}'}
+        except Exception as e:
+            return {'success': False, 'error': f'An unexpected error occurred: {e}'}
+
+    # Update user wishlist
+    def update_user_wishlist(self, state, update_by, data):
+        try:
+            result = None
+            if state == 'ADD':
+                result = self.user_collection.update_one(
+                    update_by, {'$push': {'wishlist': data}, "$currentDate": {"updatedAt": True}})
+            elif state == 'REMOVE':
+                result = self.user_collection.update_one(
+                    update_by, {'$pull': {'wishlist': data}, "$currentDate": {"updatedAt": True}})
+
+            if result.modified_count > 0:
+                return {'success': True, 'message': f'User wishlist had been updated successfully.'}
             else:
                 return {'success': False, 'error': f'No user found or no changes made.'}
 
